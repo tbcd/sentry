@@ -343,9 +343,133 @@ impl CapabilityServer for CapabilityServerImpl {
     }
 }
 
+struct OptsDnsDisc {
+    address: String,
+}
+
+impl OptsDnsDisc {
+    fn make_task(self) -> anyhow::Result<DnsDiscovery> {
+        info!("Starting DNS discovery fetch from {}", self.address);
+
+        let dns_resolver = dnsdisc::Resolver::new(Arc::new(
+            TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default())
+                .context("Failed to start DNS resolver")?,
+        ));
+
+        let task = DnsDiscovery::new(Arc::new(dns_resolver), self.address, None);
+
+        Ok(task)
+    }
+}
+
+struct OptsDiscV4 {
+    discv4_port: u16,
+    discv4_bootnodes: Vec<Discv4NR>,
+    discv4_cache: usize,
+    discv4_concurrent_lookups: usize,
+    listen_port: u16,
+}
+
+impl OptsDiscV4 {
+    async fn make_task(self, secret_key: &SecretKey) -> anyhow::Result<Discv4> {
+        info!("Starting discv4 at port {}", self.discv4_port);
+
+        let mut bootstrap_nodes = self
+            .discv4_bootnodes
+            .into_iter()
+            .map(|Discv4NR(nr)| nr)
+            .collect::<Vec<_>>();
+
+        if bootstrap_nodes.is_empty() {
+            bootstrap_nodes = BOOTNODES
+                .iter()
+                .map(|b| Ok(Discv4NR::from_str(b)?.0))
+                .collect::<Result<Vec<_>, <Discv4NR as FromStr>::Err>>()?;
+            info!("Using default discv4 bootstrap nodes");
+        }
+
+        let node = discv4::Node::new(
+            format!("0.0.0.0:{}", self.discv4_port).parse().unwrap(),
+            *secret_key,
+            bootstrap_nodes,
+            None,
+            true,
+            self.listen_port,
+        )
+        .await?;
+
+        let task = Discv4Builder::default()
+            .with_cache(self.discv4_cache)
+            .with_concurrent_lookups(self.discv4_concurrent_lookups)
+            .build(node);
+
+        Ok(task)
+    }
+}
+
+struct OptsDiscV5 {
+    discv5_enr: Option<discv5::Enr>,
+    discv5_addr: Option<String>,
+    discv5_bootnodes: Vec<discv5::Enr>,
+}
+
+impl OptsDiscV5 {
+    async fn make_task(self, secret_key: &SecretKey) -> anyhow::Result<Discv5> {
+        let addr = self
+            .discv5_addr
+            .ok_or_else(|| anyhow!("no discv5 addr specified"))?;
+        let enr = self
+            .discv5_enr
+            .ok_or_else(|| anyhow!("discv5 ENR not specified"))?;
+
+        let mut svc = discv5::Discv5::new(
+            enr,
+            discv5::enr::CombinedKey::Secp256k1(
+                k256::ecdsa::SigningKey::from_bytes(secret_key.as_ref()).unwrap(),
+            ),
+            Default::default(),
+        )
+        .map_err(|e| anyhow!("{}", e))?;
+
+        svc.start(addr.parse()?)
+            .await
+            .map_err(|e| anyhow!("{}", e))
+            .context("Failed to start discv5")?;
+
+        info!("Starting discv5 at {}", addr);
+
+        for bootnode in self.discv5_bootnodes {
+            svc.add_enr(bootnode).unwrap();
+        }
+
+        let task = Discv5::new(svc, 20);
+        Ok(task)
+    }
+}
+
+struct OptsDiscStatic {
+    static_peers: Vec<NR>,
+    static_peers_interval: u64,
+}
+
+impl OptsDiscStatic {
+    fn make_task(self) -> anyhow::Result<StaticNodes> {
+        info!("Enabling static peers: {:?}", self.static_peers);
+
+        let task = StaticNodes::new(
+            self.static_peers
+                .iter()
+                .map(|&NR(NodeRecord { addr, id })| (addr, id))
+                .collect::<HashMap<_, _>>(),
+            Duration::from_millis(self.static_peers_interval),
+        );
+        Ok(task)
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let opts = Opts::parse();
+    let opts: Opts = Opts::parse();
 
     let filter = if std::env::var(EnvFilter::DEFAULT_ENV)
         .unwrap_or_default()
@@ -394,99 +518,47 @@ async fn main() -> anyhow::Result<()> {
         info!("Peers restricted to range {}", cidr_filter);
     }
 
-    let mut discovery_tasks = StreamMap::new();
+    let mut discovery_tasks: StreamMap<String, Discovery> = StreamMap::new();
 
-    info!("Starting DNS discovery fetch from {}", opts.dnsdisc_address);
-    let dns_resolver = dnsdisc::Resolver::new(Arc::new(
-        TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default())
-            .context("Failed to start DNS resolver")?,
-    ));
+    if !opts.no_discovery {
+        let task_opts = OptsDnsDisc {
+            address: opts.dnsdisc_address,
+        };
+        let task = task_opts.make_task()?;
+        discovery_tasks.insert("dnsdisc".to_string(), Box::pin(task));
 
-    discovery_tasks.insert(
-        "dnsdisc".to_string(),
-        Box::pin(DnsDiscovery::new(
-            Arc::new(dns_resolver),
-            opts.dnsdisc_address,
-            None,
-        )) as Discovery,
-    );
+        let task_opts = OptsDiscV4 {
+            discv4_port: opts.discv4_port,
+            discv4_bootnodes: opts.discv4_bootnodes,
+            discv4_cache: opts.discv4_cache,
+            discv4_concurrent_lookups: opts.discv4_concurrent_lookups,
+            listen_port: opts.listen_port,
+        };
+        let task = task_opts.make_task(&secret_key).await?;
+        discovery_tasks.insert("discv4".to_string(), Box::pin(task));
 
-    info!("Starting discv4 at port {}", opts.discv4_port);
-
-    let mut bootstrap_nodes = opts
-        .discv4_bootnodes
-        .into_iter()
-        .map(|Discv4NR(nr)| nr)
-        .collect::<Vec<_>>();
-
-    if bootstrap_nodes.is_empty() {
-        bootstrap_nodes = BOOTNODES
-            .iter()
-            .map(|b| Ok(Discv4NR::from_str(b)?.0))
-            .collect::<Result<Vec<_>, <Discv4NR as FromStr>::Err>>()?;
-        info!("Using default discv4 bootstrap nodes");
-    }
-    discovery_tasks.insert(
-        "discv4".to_string(),
-        Box::pin(
-            Discv4Builder::default()
-                .with_cache(opts.discv4_cache)
-                .with_concurrent_lookups(opts.discv4_concurrent_lookups)
-                .build(
-                    discv4::Node::new(
-                        format!("0.0.0.0:{}", opts.discv4_port).parse().unwrap(),
-                        secret_key,
-                        bootstrap_nodes,
-                        None,
-                        true,
-                        opts.listen_port,
-                    )
-                    .await
-                    .unwrap(),
-                ),
-        ),
-    );
-
-    if opts.discv5 {
-        let addr = opts
-            .discv5_addr
-            .ok_or_else(|| anyhow!("no discv5 addr specified"))?;
-        let enr = opts
-            .discv5_enr
-            .ok_or_else(|| anyhow!("discv5 ENR not specified"))?;
-
-        let mut svc = discv5::Discv5::new(
-            enr,
-            discv5::enr::CombinedKey::Secp256k1(
-                k256::ecdsa::SigningKey::from_bytes(secret_key.as_ref()).unwrap(),
-            ),
-            Default::default(),
-        )
-        .map_err(|e| anyhow!("{}", e))?;
-        svc.start(addr.parse()?)
-            .await
-            .map_err(|e| anyhow!("{}", e))
-            .context("Failed to start discv5")?;
-        info!("Starting discv5 at {}", addr);
-
-        for bootnode in opts.discv5_bootnodes {
-            svc.add_enr(bootnode).unwrap();
+        if opts.discv5 {
+            let task_opts = OptsDiscV5 {
+                discv5_enr: opts.discv5_enr,
+                discv5_addr: opts.discv5_addr,
+                discv5_bootnodes: opts.discv5_bootnodes,
+            };
+            let task = task_opts.make_task(&secret_key).await?;
+            discovery_tasks.insert("discv5".to_string(), Box::pin(task));
         }
-        discovery_tasks.insert("discv5".to_string(), Box::pin(Discv5::new(svc, 20)));
     }
 
     if !opts.static_peers.is_empty() {
-        info!("Enabling static peers: {:?}", opts.static_peers);
-        discovery_tasks.insert(
-            "static peers".to_string(),
-            Box::pin(StaticNodes::new(
-                opts.static_peers
-                    .iter()
-                    .map(|&NR(NodeRecord { addr, id })| (addr, id))
-                    .collect::<HashMap<_, _>>(),
-                Duration::from_millis(opts.static_peers_interval),
-            )),
-        );
+        let task_opts = OptsDiscStatic {
+            static_peers: opts.static_peers,
+            static_peers_interval: opts.static_peers_interval,
+        };
+        let task = task_opts.make_task()?;
+        discovery_tasks.insert("static peers".to_string(), Box::pin(task));
+    }
+
+    if discovery_tasks.is_empty() {
+        warn!("All discovery methods are disabled, sentry will not search for peers.");
     }
 
     let tasks = Arc::new(TaskGroup::new());

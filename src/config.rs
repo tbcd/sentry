@@ -42,7 +42,7 @@ pub struct Opts {
     pub discv4_cache: usize,
     #[clap(long, env, default_value = "1")]
     pub discv4_concurrent_lookups: usize,
-    #[clap(long, env)]
+    #[clap(long, env, takes_value = false)]
     pub discv5: bool,
     #[clap(long, env)]
     pub discv5_enr: Option<discv5::Enr>,
@@ -54,11 +54,13 @@ pub struct Opts {
     pub static_peers: Vec<NR>,
     #[clap(long, env, default_value = "5000")]
     pub static_peers_interval: u64,
-    #[clap(long, default_value = "50")]
+    #[clap(long, env, default_value = "50")]
     pub max_peers: usize,
+    #[clap(long, env, takes_value = false, /*, help = "Disable DNS, v4 & v5 discovery, only use static peers."*/)]
+    pub no_discovery: bool,
     #[clap(long, env)]
     pub peers_file: Option<PathBuf>,
-    #[clap(long, env)]
+    #[clap(long, env, takes_value = false)]
     pub tokio_console: bool,
 }
 
