@@ -126,7 +126,7 @@ impl Decoder for ECIESCodec {
                     }
 
                     let mut data = buf.split_to(self.ecies.body_len());
-                    let ret = Bytes::copy_from_slice(&self.ecies.read_body(&mut *data)?);
+                    let ret = Bytes::copy_from_slice(self.ecies.read_body(&mut *data)?);
 
                     self.state = ECIESState::Header;
                     return Ok(Some(IngressECIESValue::Message(ret)));

@@ -259,7 +259,7 @@ impl Node {
             });
         }
 
-        let id = pk2id(&PublicKey::from_secret_key(&SECP256K1, &secret_key));
+        let id = pk2id(&PublicKey::from_secret_key(SECP256K1, &secret_key));
 
         debug!("Starting node with id: {}", id);
 

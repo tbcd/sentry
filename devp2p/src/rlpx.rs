@@ -59,7 +59,7 @@ struct DisconnectSignal {
 
 #[derive(Debug)]
 struct ConnectedPeerState {
-    tasks: TaskGroup,
+    _tasks: TaskGroup,
 }
 
 #[derive(Debug)]
@@ -74,7 +74,7 @@ impl PeerState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct PeerStreams {
     /// Mapping of remote IDs to streams in `StreamMap`
     mapping: HashMap<PeerId, PeerState>,
@@ -85,14 +85,6 @@ impl PeerStreams {
         debug!("disconnecting peer {}", remote_id);
 
         self.mapping.remove(&remote_id).is_some()
-    }
-}
-
-impl Default for PeerStreams {
-    fn default() -> Self {
-        Self {
-            mapping: HashMap::new(),
-        }
     }
 }
 
@@ -357,7 +349,7 @@ where
             sleep(PING_INTERVAL).await;
         }
     });
-    ConnectedPeerState { tasks }
+    ConnectedPeerState { _tasks: tasks }
 }
 
 /// Establishes the connection with peer and adds them to internal state.
@@ -435,8 +427,6 @@ async fn handle_incoming_request<C, Io>(
 
 #[derive(Debug, Default)]
 struct CapabilitySet {
-    inner: BTreeMap<CapabilityId, CapabilityLength>,
-
     capability_cache: Vec<CapabilityInfo>,
 }
 
@@ -459,10 +449,7 @@ impl From<BTreeMap<CapabilityId, CapabilityLength>> for CapabilitySet {
             )
             .collect();
 
-        Self {
-            inner,
-            capability_cache,
-        }
+        Self { capability_cache }
     }
 }
 
@@ -599,7 +586,7 @@ impl<C: CapabilityServer> Swarm<C> {
             let tcp_incoming = TcpListener::bind(options.addr)
                 .await
                 .context("Failed to bind RLPx node to socket")?;
-            let cidr = options.cidr.clone();
+            let cidr = options.cidr;
             tasks.spawn_with_name("incoming handler", {
                 let handshake_data = PeerStreamHandshakeData {
                     port,

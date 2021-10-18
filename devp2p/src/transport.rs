@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use cidr::{Cidr, IpCidr};
+use cidr::IpCidr;
 use std::{fmt::Debug, net::SocketAddr};
 use tokio::{
     io::{AsyncRead, AsyncWrite},

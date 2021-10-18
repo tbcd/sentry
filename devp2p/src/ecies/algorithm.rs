@@ -28,7 +28,7 @@ const PROTOCOL_VERSION: usize = 4;
 
 fn ecdh_x(public_key: &PublicKey, secret_key: &SecretKey) -> H256 {
     H256::from_slice(
-        &secp256k1::ecdh::SharedSecret::new_with_hash(&public_key, &secret_key, |x, _| x.into())
+        &secp256k1::ecdh::SharedSecret::new_with_hash(public_key, secret_key, |x, _| x.into())
             [0..32],
     )
 }
@@ -209,7 +209,7 @@ impl ECIES {
     fn decrypt_message<'a>(&self, data: &'a mut [u8]) -> Result<&'a mut [u8], ECIESError> {
         let (auth_data, encrypted) = data.split_at_mut(2);
         let (pubkey_bytes, encrypted) = encrypted.split_at_mut(65);
-        let public_key = PublicKey::from_slice(&pubkey_bytes)
+        let public_key = PublicKey::from_slice(pubkey_bytes)
             .with_context(|| format!("bad public key {}", hex::encode(pubkey_bytes)))?;
         let (data_iv, tag_bytes) = encrypted.split_at_mut(encrypted.len() - 32);
         let (iv, encrypted_data) = data_iv.split_at_mut(16);
@@ -327,7 +327,7 @@ impl ECIES {
     pub fn read_auth(&mut self, data: &mut [u8]) -> Result<(), ECIESError> {
         self.remote_init_msg = Some(Bytes::copy_from_slice(data));
         let unencrypted = self.decrypt_message(data)?;
-        self.parse_auth_unencrypted(&unencrypted)
+        self.parse_auth_unencrypted(unencrypted)
     }
 
     fn create_ack_unencrypted(&self) -> BytesMut {
@@ -392,7 +392,7 @@ impl ECIES {
     pub fn read_ack(&mut self, data: &mut [u8]) -> Result<(), ECIESError> {
         self.remote_init_msg = Some(Bytes::copy_from_slice(data));
         let unencrypted = self.decrypt_message(data)?;
-        self.parse_ack_unencrypted(&unencrypted)?;
+        self.parse_ack_unencrypted(unencrypted)?;
         self.setup_frame(false);
         Ok(())
     }
@@ -489,7 +489,7 @@ impl ECIES {
         let mut header = HeaderBytes::from_mut_slice(header_bytes);
         let mac = H128::from_slice(&mac_bytes[..16]);
 
-        self.ingress_mac.as_mut().unwrap().update_header(&header);
+        self.ingress_mac.as_mut().unwrap().update_header(header);
         let check_mac = self.ingress_mac.as_mut().unwrap().digest();
         if check_mac != mac {
             return Err(ECIESError::TagCheckFailed);
@@ -543,7 +543,7 @@ impl ECIES {
             .as_mut()
             .unwrap()
             .apply_keystream(&mut encrypted);
-        self.egress_mac.as_mut().unwrap().update_body(&encrypted);
+        self.egress_mac.as_mut().unwrap().update_body(encrypted);
         let tag = self.egress_mac.as_mut().unwrap().digest();
 
         out.extend_from_slice(tag.as_bytes());

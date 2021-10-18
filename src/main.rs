@@ -3,7 +3,7 @@
 use crate::{
     config::*,
     eth::*,
-    grpc::sentry::{sentry_server::SentryServer, InboundMessage},
+    grpc::sentry::{sentry_server::SentryServer, InboundMessage, PeersReply},
     services::*,
 };
 use anyhow::{anyhow, Context};
@@ -125,6 +125,7 @@ pub struct CapabilityServerImpl {
     valid_peers: Arc<RwLock<HashSet<PeerId>>>,
 
     data_sender: BroadcastSender<InboundMessage>,
+    peers_status_sender: BroadcastSender<PeersReply>,
 
     no_new_peers: Arc<AtomicBool>,
 }
@@ -160,6 +161,14 @@ impl CapabilityServerImpl {
         pipes.remove(&peer);
         block_tracker.remove_peer(peer);
         valid_peers.remove(&peer);
+
+        let send_status_result = self.peers_status_sender.send(grpc::sentry::PeersReply {
+            peer_id: Some(ethereum_interfaces::types::H512::from(peer)),
+            event: grpc::sentry::peers_reply::PeerEvent::Disconnect as i32,
+        });
+        if let Err(error) = send_status_result {
+            warn!("Failed to notify about a disconnected peer: {}", error);
+        }
     }
 
     pub fn all_peers(&self) -> HashSet<PeerId> {
@@ -215,6 +224,15 @@ impl CapabilityServerImpl {
                             })?;
 
                             valid_peers.insert(peer);
+
+                            let send_status_result =
+                                self.peers_status_sender.send(grpc::sentry::PeersReply {
+                                    peer_id: Some(ethereum_interfaces::types::H512::from(peer)),
+                                    event: grpc::sentry::peers_reply::PeerEvent::Connect as i32,
+                                });
+                            if let Err(error) = send_status_result {
+                                warn!("Failed to notify about a connected peer: {}", error);
+                            }
                         }
                     }
                     Some(inbound_id) if valid_peer => {
@@ -475,6 +493,7 @@ async fn main() -> anyhow::Result<()> {
 
     let protocol_version = EthProtocolVersion::Eth66;
     let data_sender = broadcast(opts.max_peers * BUFFERING_FACTOR).0;
+    let peers_status_sender = broadcast(opts.max_peers).0;
     let no_new_peers = Arc::new(AtomicBool::new(true));
 
     let capability_server = Arc::new(CapabilityServerImpl {
@@ -484,6 +503,7 @@ async fn main() -> anyhow::Result<()> {
         protocol_version,
         valid_peers: Default::default(),
         data_sender,
+        peers_status_sender,
         no_new_peers: no_new_peers.clone(),
     });
 

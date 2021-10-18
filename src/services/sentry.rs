@@ -1,22 +1,29 @@
 use crate::{
     eth::*,
     grpc::sentry::{
-        sentry_server::*, InboundMessage, MessageId as ProtoMessageId, OutboundMessageData,
-        PeerMinBlockRequest, SentPeers, SetStatusReply,
+        sentry_server::*, HandShakeReply, InboundMessage, MessageId as ProtoMessageId,
+        OutboundMessageData, PeerMinBlockRequest, PeersReply, PeersRequest, SentPeers,
+        SetStatusReply,
     },
     CapabilityServerImpl,
 };
 use async_trait::async_trait;
 use devp2p::*;
-use futures::{stream::FuturesUnordered, Stream};
+use futures::{stream::FuturesUnordered, Stream, TryStreamExt};
 use num_traits::ToPrimitive;
 use std::{collections::HashSet, convert::TryFrom, pin::Pin, sync::Arc};
-use tokio_stream::{wrappers::BroadcastStream, StreamExt};
+use tokio_stream::{
+    wrappers::{errors::BroadcastStreamRecvError, BroadcastStream},
+    StreamExt,
+};
 use tonic::Response;
 use tracing::*;
 
 pub type InboundMessageStream =
     Pin<Box<dyn Stream<Item = anyhow::Result<InboundMessage, tonic::Status>> + Send + Sync>>;
+
+pub type PeersReplyStream =
+    Pin<Box<dyn Stream<Item = anyhow::Result<PeersReply, tonic::Status>> + Send + Sync>>;
 
 pub struct SentryService {
     capability_server: Arc<CapabilityServerImpl>,
@@ -139,6 +146,24 @@ impl Sentry for SentryService {
         Ok(Response::new(reply))
     }
 
+    type PeersStream = PeersReplyStream;
+
+    async fn peers(
+        &self,
+        _request: tonic::Request<PeersRequest>,
+    ) -> Result<Response<Self::PeersStream>, tonic::Status> {
+        let receiver = self.capability_server.peers_status_sender.subscribe();
+        let stream = BroadcastStream::new(receiver)
+            // map BroadcastStreamRecvError to tonic::Status
+            .map_err(|error| match error {
+                BroadcastStreamRecvError::Lagged(_) => tonic::Status::new(
+                    tonic::Code::ResourceExhausted,
+                    "The receiver lagged too far behind. Some events dropped.",
+                ),
+            });
+        Ok(Response::new(Box::pin(stream)))
+    }
+
     async fn send_message_by_min_block(
         &self,
         request: tonic::Request<crate::grpc::sentry::SendMessageByMinBlockRequest>,
@@ -229,8 +254,15 @@ impl Sentry for SentryService {
 
         self.capability_server.set_status(s);
 
+        Ok(Response::new(SetStatusReply {}))
+    }
+
+    async fn hand_shake(
+        &self,
+        _request: tonic::Request<()>,
+    ) -> Result<Response<HandShakeReply>, tonic::Status> {
         let protocol_version = self.capability_server.protocol_version;
-        let reply = SetStatusReply {
+        let reply = HandShakeReply {
             protocol: crate::grpc::sentry::Protocol::from(protocol_version) as i32,
         };
 

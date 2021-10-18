@@ -30,7 +30,7 @@ pub fn pk2id(pk: &PublicKey) -> PeerId {
 pub fn id2pk(id: PeerId) -> Result<PublicKey, secp256k1::Error> {
     let mut s = [0_u8; 65];
     s[0] = 4;
-    s[1..].copy_from_slice(&id.as_bytes());
+    s[1..].copy_from_slice(id.as_bytes());
     PublicKey::from_slice(&s)
 }
 

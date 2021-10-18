@@ -178,7 +178,7 @@ impl<K: EnrKeyUnambiguous> FromStr for DnsRecord<K> {
             let mut it = link.split('@');
             let public_key = K::decode_public(
                 &BASE32_NOPAD.decode(
-                    &it.next()
+                    it.next()
                         .ok_or_else(|| anyhow!("Public key not found"))?
                         .as_bytes(),
                 )?,
@@ -279,7 +279,7 @@ fn resolve_branch<B: Backend, K: EnrKeyUnambiguous>(
                                 DnsRecord::Link { public_key, domain } => {
                                     if let BranchKind::Link { remote_whitelist } = &kind {
                                         if domain_is_allowed::<K>(
-                                            &remote_whitelist,
+                                            remote_whitelist,
                                             &domain,
                                             &public_key,
                                         ) {
@@ -360,7 +360,7 @@ fn resolve_tree<B: Backend, K: EnrKeyUnambiguous>(
         let task_group = task_group.unwrap_or_default();
         let record = backend.get_record(host.clone()).await?;
         if let Some(record) = &record {
-            let record = DnsRecord::<K>::from_str(&record)?;
+            let record = DnsRecord::<K>::from_str(record)?;
             if let DnsRecord::Root(record) = &record {
                 if let Some(pk) = public_key {
                     record.verify::<K>(&pk)?;
