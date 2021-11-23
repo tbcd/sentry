@@ -166,8 +166,8 @@ impl CapabilityServerImpl {
             peer_id: Some(ethereum_interfaces::types::H512::from(peer)),
             event: grpc::sentry::peers_reply::PeerEvent::Disconnect as i32,
         });
-        if let Err(error) = send_status_result {
-            warn!("Failed to notify about a disconnected peer: {}", error);
+        if send_status_result.is_err() {
+            debug!("CapabilityServerImpl.teardown_peer: no subscribers to report peer status to");
         }
     }
 
@@ -230,8 +230,8 @@ impl CapabilityServerImpl {
                                     peer_id: Some(ethereum_interfaces::types::H512::from(peer)),
                                     event: grpc::sentry::peers_reply::PeerEvent::Connect as i32,
                                 });
-                            if let Err(error) = send_status_result {
-                                warn!("Failed to notify about a connected peer: {}", error);
+                            if send_status_result.is_err() {
+                                debug!("CapabilityServerImpl.handle_event with message_id=Status: no subscribers to report peer status to");
                             }
                         }
                     }
