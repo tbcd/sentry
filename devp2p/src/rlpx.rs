@@ -5,7 +5,7 @@ use crate::{
     node_filter::{MemoryNodeFilter, NodeFilter},
     peer::*,
     transport::{TcpServer, TokioCidrListener, Transport},
-    types::*,
+    types::*, util::id512_to_id256,
 };
 use anyhow::{anyhow, bail, Context};
 use cidr::IpCidr;
@@ -139,7 +139,7 @@ async fn handle_incoming<TS, C>(
 fn setup_peer_state<C, Io>(
     streams: Weak<Mutex<PeerStreams>>,
     capability_server: Arc<C>,
-    remote_id: PeerId512,
+    remote_id512: PeerId512,
     peer: PeerStream<Io>,
 ) -> ConnectedPeerState
 where
@@ -156,14 +156,16 @@ where
     let (peer_disconnect_tx, mut peer_disconnect_rx) = unbounded_channel();
     let tasks = TaskGroup::default();
 
-    capability_server.on_peer_connect(remote_id, capability_set);
+    let remote_id256 = id512_to_id256(remote_id512);
+
+    capability_server.on_peer_connect(remote_id256, capability_set);
 
     let pinged = Arc::new(AtomicBool::default());
     let (pings_tx, mut pings) = channel(1);
     let (pongs_tx, mut pongs) = channel(1);
 
     // This will handle incoming packets from peer.
-    tasks.spawn_with_name(format!("peer {} ingress router", remote_id), {
+    tasks.spawn_with_name(format!("peer {} ingress router", remote_id512), {
         let peer_disconnect_tx = peer_disconnect_tx.clone();
         let capability_server = capability_server.clone();
         let pinged = pinged.clone();
@@ -183,7 +185,7 @@ where
                                 // Actually handle the message
                                 capability_server
                                     .on_peer_event(
-                                        remote_id,
+                                        remote_id256,
                                         InboundEvent::Message {
                                             capability_name: cap_name,
                                             message,
@@ -219,14 +221,14 @@ where
 
             let _ = peer_disconnect_tx.send(disconnect_signal);
         }
-        .instrument(span!(Level::DEBUG, "IN", "peer={}", remote_id.to_string(),))
+        .instrument(span!(Level::DEBUG, "IN", "peer={}", remote_id512.to_string(),))
     });
 
     // This will send our packets to peer.
     tasks.spawn_with_name(
-        format!("peer {} egress router & disconnector", remote_id),
+        format!("peer {} egress router & disconnector", remote_id512),
         async move {
-            let mut event_fut = capability_server.next(remote_id);
+            let mut event_fut = capability_server.next(remote_id256);
             loop {
                 let mut disconnecting = None;
 
@@ -240,7 +242,7 @@ where
                             OutboundEvent::Message {
                                 capability_name, message
                             } => {
-                                event_fut = capability_server.next(remote_id);
+                                event_fut = capability_server.next(remote_id256);
                                 egress = Some((PeerMessage::Subprotocol(SubprotocolMessage {
                                     cap_name: capability_name, message
                                 }), None));
@@ -296,7 +298,7 @@ where
                     }
                     capability_server
                         .on_peer_event(
-                            remote_id,
+                            remote_id256,
                             InboundEvent::Disconnect {
                                 reason: Some(reason),
                             },
@@ -310,19 +312,19 @@ where
             if let Some(streams) = streams.upgrade() {
                 // This is the last line guaranteed to be executed.
                 // After this the peer's task group is dropped and any alive tasks are forcibly cancelled.
-                streams.lock().disconnect_peer(remote_id);
+                streams.lock().disconnect_peer(remote_id512);
             }
         }
         .instrument(span!(
             Level::DEBUG,
             "OUT/DISC",
             "peer={}",
-            remote_id.to_string(),
+            remote_id512.to_string(),
         )),
     );
 
     // This will ping the peer and disconnect if they don't respond.
-    tasks.spawn_with_name(format!("peer {} pinger", remote_id), async move {
+    tasks.spawn_with_name(format!("peer {} pinger", remote_id512), async move {
         loop {
             pinged.store(true, Ordering::SeqCst);
 

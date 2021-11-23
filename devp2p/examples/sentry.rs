@@ -83,17 +83,17 @@ struct Pipes {
 
 #[derive(Default)]
 struct CapabilityServerImpl {
-    peer_pipes: Arc<RwLock<HashMap<PeerId512, Pipes>>>,
+    peer_pipes: Arc<RwLock<HashMap<PeerId256, Pipes>>>,
 }
 
 impl CapabilityServerImpl {
-    fn setup_pipes(&self, peer: PeerId512, pipes: Pipes) {
+    fn setup_pipes(&self, peer: PeerId256, pipes: Pipes) {
         assert!(self.peer_pipes.write().insert(peer, pipes).is_none());
     }
-    fn get_pipes(&self, peer: PeerId512) -> Pipes {
+    fn get_pipes(&self, peer: PeerId256) -> Pipes {
         self.peer_pipes.read().get(&peer).unwrap().clone()
     }
-    fn teardown(&self, peer: PeerId512) {
+    fn teardown(&self, peer: PeerId256) {
         self.peer_pipes.write().remove(&peer);
     }
     fn connected_peers(&self) -> usize {
@@ -104,7 +104,7 @@ impl CapabilityServerImpl {
 #[async_trait]
 impl CapabilityServer for CapabilityServerImpl {
     #[instrument(skip(self, peer), fields(peer=&*peer.to_string()))]
-    fn on_peer_connect(&self, peer: PeerId512, caps: HashMap<CapabilityName, CapabilityVersion>) {
+    fn on_peer_connect(&self, peer: PeerId256, caps: HashMap<CapabilityName, CapabilityVersion>) {
         info!("Setting up peer state");
         let status_message = StatusMessage {
             protocol_version: *caps.get(&eth()).unwrap(),
@@ -143,7 +143,7 @@ impl CapabilityServer for CapabilityServerImpl {
         );
     }
     #[instrument(skip(self, peer, event), fields(peer=&*peer.to_string(), event=&*event.to_string()))]
-    async fn on_peer_event(&self, peer: PeerId512, event: InboundEvent) {
+    async fn on_peer_event(&self, peer: PeerId256, event: InboundEvent) {
         match event {
             InboundEvent::Disconnect { .. } => {
                 self.teardown(peer);
@@ -198,7 +198,7 @@ impl CapabilityServer for CapabilityServerImpl {
         }
     }
     #[instrument(skip(self, peer), fields(peer=&*peer.to_string()))]
-    async fn next(&self, peer: PeerId512) -> OutboundEvent {
+    async fn next(&self, peer: PeerId256) -> OutboundEvent {
         let outbound = self
             .get_pipes(peer)
             .receiver

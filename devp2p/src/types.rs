@@ -122,20 +122,20 @@ pub enum OutboundEvent {
 #[auto_impl(&, Box, Arc)]
 pub trait CapabilityServer: Send + Sync + 'static {
     /// Should be used to set up relevant state for the peer.
-    fn on_peer_connect(&self, peer: PeerId512, caps: HashMap<CapabilityName, CapabilityVersion>);
+    fn on_peer_connect(&self, peer: PeerId256, caps: HashMap<CapabilityName, CapabilityVersion>);
     /// Called on the next event for peer.
-    async fn on_peer_event(&self, peer: PeerId512, event: InboundEvent);
+    async fn on_peer_event(&self, peer: PeerId256, event: InboundEvent);
     /// Get the next event for peer.
-    async fn next(&self, peer: PeerId512) -> OutboundEvent;
+    async fn next(&self, peer: PeerId256) -> OutboundEvent;
 }
 
 #[async_trait]
 impl CapabilityServer for () {
-    fn on_peer_connect(&self, _: PeerId512, _: HashMap<CapabilityName, CapabilityVersion>) {}
+    fn on_peer_connect(&self, _: PeerId256, _: HashMap<CapabilityName, CapabilityVersion>) {}
 
-    async fn on_peer_event(&self, _: PeerId512, _: InboundEvent) {}
+    async fn on_peer_event(&self, _: PeerId256, _: InboundEvent) {}
 
-    async fn next(&self, _: PeerId512) -> OutboundEvent {
+    async fn next(&self, _: PeerId256) -> OutboundEvent {
         futures::future::pending().await
     }
 }

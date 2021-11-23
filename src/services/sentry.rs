@@ -43,7 +43,7 @@ impl SentryService {
     ) -> SentPeers
     where
         F: FnOnce(&CapabilityServerImpl) -> IT,
-        IT: IntoIterator<Item = PeerId512>,
+        IT: IntoIterator<Item = PeerId256>,
     {
         let result = self.try_send_by_predicate(request, pred).await;
         result.unwrap_or_else(|error| {
@@ -62,7 +62,7 @@ impl SentryService {
     ) -> anyhow::Result<SentPeers>
     where
         F: FnOnce(&CapabilityServerImpl) -> IT,
-        IT: IntoIterator<Item = PeerId512>,
+        IT: IntoIterator<Item = PeerId256>,
     {
         let request = request.ok_or_else(|| anyhow::anyhow!("empty request"))?;
 
@@ -93,8 +93,8 @@ impl SentryService {
     async fn send_message(
         &self,
         message: Message,
-        peer: devp2p::PeerId512,
-    ) -> anyhow::Result<devp2p::PeerId512> {
+        peer: devp2p::PeerId256,
+    ) -> anyhow::Result<devp2p::PeerId256> {
         let sender = self
             .capability_server
             .sender(peer)
