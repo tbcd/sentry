@@ -23,11 +23,11 @@ pub fn hmac_sha256(key: &[u8], input: &[&[u8]], auth_data: &[u8]) -> H256 {
     H256::from_slice(&*hmac.finalize().into_bytes())
 }
 
-pub fn pk2id(pk: &PublicKey) -> PeerId {
-    PeerId::from_slice(&pk.serialize_uncompressed()[1..])
+pub fn pk2id(pk: &PublicKey) -> PeerId512 {
+    PeerId512::from_slice(&pk.serialize_uncompressed()[1..])
 }
 
-pub fn id2pk(id: PeerId) -> Result<PublicKey, secp256k1::Error> {
+pub fn id2pk(id: PeerId512) -> Result<PublicKey, secp256k1::Error> {
     let mut s = [0_u8; 65];
     s[0] = 4;
     s[1..].copy_from_slice(id.as_bytes());

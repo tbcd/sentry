@@ -15,17 +15,17 @@ struct DummyServer;
 #[async_trait]
 impl CapabilityServer for DummyServer {
     #[instrument(skip(self, peer), fields(peer=&*peer.to_string()))]
-    fn on_peer_connect(&self, peer: PeerId, _: HashMap<CapabilityName, CapabilityVersion>) {
+    fn on_peer_connect(&self, peer: PeerId512, _: HashMap<CapabilityName, CapabilityVersion>) {
         info!("Peer connected")
     }
 
     #[instrument(skip(self, _peer, _event), fields(peer=&*_peer.to_string(), event=&*_event.to_string()))]
-    async fn on_peer_event(&self, _peer: PeerId, _event: InboundEvent) {
+    async fn on_peer_event(&self, _peer: PeerId512, _event: InboundEvent) {
         info!("Received event");
     }
 
     #[instrument(skip(self, _peer), fields(peer=&*_peer.to_string()))]
-    async fn next(&self, _peer: PeerId) -> OutboundEvent {
+    async fn next(&self, _peer: PeerId512) -> OutboundEvent {
         futures::future::pending().await
     }
 }

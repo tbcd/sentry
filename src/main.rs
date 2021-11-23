@@ -62,12 +62,12 @@ struct Pipes {
 
 #[derive(Clone, Debug, Default)]
 struct BlockTracker {
-    block_by_peer: HashMap<PeerId, u64>,
-    peers_by_block: BTreeMap<u64, HashSet<PeerId>>,
+    block_by_peer: HashMap<PeerId512, u64>,
+    peers_by_block: BTreeMap<u64, HashSet<PeerId512>>,
 }
 
 impl BlockTracker {
-    fn set_block_number(&mut self, peer: PeerId, block: u64, force_create: bool) {
+    fn set_block_number(&mut self, peer: PeerId512, block: u64, force_create: bool) {
         match self.block_by_peer.entry(peer) {
             HashMapEntry::Vacant(e) => {
                 if force_create {
@@ -91,7 +91,7 @@ impl BlockTracker {
         self.peers_by_block.entry(block).or_default().insert(peer);
     }
 
-    fn remove_peer(&mut self, peer: PeerId) {
+    fn remove_peer(&mut self, peer: PeerId512) {
         if let Some(block) = self.block_by_peer.remove(&peer) {
             if let Entry::Occupied(mut entry) = self.peers_by_block.entry(block) {
                 entry.get_mut().remove(&peer);
@@ -103,7 +103,7 @@ impl BlockTracker {
         }
     }
 
-    fn peers_with_min_block(&self, block: u64) -> HashSet<PeerId> {
+    fn peers_with_min_block(&self, block: u64) -> HashSet<PeerId512> {
         self.peers_by_block
             .range(block..)
             .map(|(_, v)| v)
@@ -117,12 +117,12 @@ impl BlockTracker {
 #[educe(Debug)]
 pub struct CapabilityServerImpl {
     #[educe(Debug(ignore))]
-    peer_pipes: Arc<RwLock<HashMap<PeerId, Pipes>>>,
+    peer_pipes: Arc<RwLock<HashMap<PeerId512, Pipes>>>,
     block_tracker: Arc<RwLock<BlockTracker>>,
 
     status_message: Arc<RwLock<Option<FullStatusData>>>,
     protocol_version: EthProtocolVersion,
-    valid_peers: Arc<RwLock<HashSet<PeerId>>>,
+    valid_peers: Arc<RwLock<HashSet<PeerId512>>>,
 
     data_sender: BroadcastSender<InboundMessage>,
     peers_status_sender: BroadcastSender<PeersReply>,
@@ -131,29 +131,29 @@ pub struct CapabilityServerImpl {
 }
 
 impl CapabilityServerImpl {
-    fn setup_peer(&self, peer: PeerId, p: Pipes) {
+    fn setup_peer(&self, peer: PeerId512, p: Pipes) {
         let mut pipes = self.peer_pipes.write();
         let mut block_tracker = self.block_tracker.write();
 
         assert!(pipes.insert(peer, p).is_none());
         block_tracker.set_block_number(peer, 0, true);
     }
-    fn get_pipes(&self, peer: PeerId) -> Option<Pipes> {
+    fn get_pipes(&self, peer: PeerId512) -> Option<Pipes> {
         self.peer_pipes.read().get(&peer).cloned()
     }
-    pub fn sender(&self, peer: PeerId) -> Option<OutboundSender> {
+    pub fn sender(&self, peer: PeerId512) -> Option<OutboundSender> {
         self.peer_pipes
             .read()
             .get(&peer)
             .map(|pipes| pipes.sender.clone())
     }
-    fn receiver(&self, peer: PeerId) -> Option<OutboundReceiver> {
+    fn receiver(&self, peer: PeerId512) -> Option<OutboundReceiver> {
         self.peer_pipes
             .read()
             .get(&peer)
             .map(|pipes| pipes.receiver.clone())
     }
-    fn teardown_peer(&self, peer: PeerId) {
+    fn teardown_peer(&self, peer: PeerId512) {
         let mut pipes = self.peer_pipes.write();
         let mut block_tracker = self.block_tracker.write();
         let mut valid_peers = self.valid_peers.write();
@@ -171,7 +171,7 @@ impl CapabilityServerImpl {
         }
     }
 
-    pub fn all_peers(&self) -> HashSet<PeerId> {
+    pub fn all_peers(&self) -> HashSet<PeerId512> {
         self.peer_pipes.read().keys().copied().collect()
     }
 
@@ -187,7 +187,7 @@ impl CapabilityServerImpl {
     #[instrument(skip(self))]
     async fn handle_event(
         &self,
-        peer: PeerId,
+        peer: PeerId512,
         event: InboundEvent,
     ) -> Result<Option<Message>, DisconnectReason> {
         match event {
@@ -263,7 +263,7 @@ impl CapabilityServerImpl {
 #[async_trait]
 impl CapabilityServer for CapabilityServerImpl {
     #[instrument(skip(self, peer), level = "debug", fields(peer=&*peer.to_string()))]
-    fn on_peer_connect(&self, peer: PeerId, caps: HashMap<CapabilityName, CapabilityVersion>) {
+    fn on_peer_connect(&self, peer: PeerId512, caps: HashMap<CapabilityName, CapabilityVersion>) {
         let first_events = if let Some(FullStatusData {
             status,
             fork_filter,
@@ -311,7 +311,7 @@ impl CapabilityServer for CapabilityServerImpl {
         );
     }
     #[instrument(skip(self, peer, event), level = "debug", fields(peer=&*peer.to_string(), event=&*event.to_string()))]
-    async fn on_peer_event(&self, peer: PeerId, event: InboundEvent) {
+    async fn on_peer_event(&self, peer: PeerId512, event: InboundEvent) {
         debug!("Received message");
 
         if let Some(ev) = self.handle_event(peer, event).await.transpose() {
@@ -330,7 +330,7 @@ impl CapabilityServer for CapabilityServerImpl {
     }
 
     #[instrument(skip(self, peer), level = "debug", fields(peer=&*peer.to_string()))]
-    async fn next(&self, peer: PeerId) -> OutboundEvent {
+    async fn next(&self, peer: PeerId512) -> OutboundEvent {
         self.receiver(peer)
             .unwrap()
             .lock()

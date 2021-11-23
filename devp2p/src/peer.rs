@@ -84,7 +84,7 @@ pub struct HelloMessage {
     pub client_version: String,
     pub capabilities: Vec<CapabilityMessage>,
     pub port: u16,
-    pub id: PeerId,
+    pub id: PeerId512,
 }
 
 impl Encodable for HelloMessage {
@@ -133,8 +133,8 @@ pub struct PeerStream<Io> {
     client_version: String,
     shared_capabilities: Vec<CapabilityInfo>,
     port: u16,
-    id: PeerId,
-    remote_id: PeerId,
+    id: PeerId512,
+    remote_id: PeerId512,
 
     snappy: Snappy,
 
@@ -146,7 +146,7 @@ where
     Io: Transport,
 {
     /// Remote public id of this peer
-    pub fn remote_id(&self) -> PeerId {
+    pub fn remote_id(&self) -> PeerId512 {
         self.remote_id
     }
 
@@ -163,7 +163,7 @@ where
     pub async fn connect(
         transport: Io,
         secret_key: SecretKey,
-        remote_id: PeerId,
+        remote_id: PeerId512,
         client_version: String,
         capabilities: Vec<CapabilityInfo>,
         port: u16,

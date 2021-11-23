@@ -65,7 +65,7 @@ pub struct ECIES {
     public_key: PublicKey,
     remote_public_key: Option<PublicKey>,
 
-    pub(crate) remote_id: Option<PeerId>,
+    pub(crate) remote_id: Option<PeerId512>,
 
     #[educe(Debug(ignore))]
     ephemeral_secret_key: SecretKey,
@@ -90,7 +90,7 @@ pub struct ECIES {
 impl ECIES {
     fn new_static_client(
         secret_key: SecretKey,
-        remote_id: PeerId,
+        remote_id: PeerId512,
         nonce: H256,
         ephemeral_secret_key: SecretKey,
     ) -> Result<Self, ECIESError> {
@@ -122,7 +122,7 @@ impl ECIES {
         })
     }
 
-    pub fn new_client(secret_key: SecretKey, remote_id: PeerId) -> Result<Self, ECIESError> {
+    pub fn new_client(secret_key: SecretKey, remote_id: PeerId512) -> Result<Self, ECIESError> {
         let nonce = H256::random();
         let ephemeral_secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
 
@@ -168,7 +168,7 @@ impl ECIES {
         Self::new_static_server(secret_key, nonce, ephemeral_secret_key)
     }
 
-    pub fn remote_id(&self) -> PeerId {
+    pub fn remote_id(&self) -> PeerId512 {
         self.remote_id.unwrap()
     }
 

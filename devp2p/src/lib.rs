@@ -24,5 +24,5 @@ pub use peer::{DisconnectReason, PeerStream};
 pub use rlpx::{ListenOptions, Swarm, SwarmBuilder};
 pub use types::{
     CapabilityId, CapabilityInfo, CapabilityName, CapabilityServer, CapabilityVersion,
-    InboundEvent, Message, NodeRecord, OutboundEvent, PeerId,
+    InboundEvent, Message, NodeRecord, OutboundEvent, PeerId512,
 };

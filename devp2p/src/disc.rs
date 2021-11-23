@@ -34,7 +34,7 @@ pub type Discovery = BoxStream<'static, anyhow::Result<NodeRecord>>;
 pub struct StaticNodes(Pin<Box<dyn Stream<Item = anyhow::Result<NodeRecord>> + Send + 'static>>);
 
 impl StaticNodes {
-    pub fn new(nodes: HashMap<SocketAddr, PeerId>, delay: Duration) -> Self {
+    pub fn new(nodes: HashMap<SocketAddr, PeerId512>, delay: Duration) -> Self {
         Self(Box::pin(stream! {
             loop {
                 for (&addr, &id) in &nodes {

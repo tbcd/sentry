@@ -77,11 +77,11 @@ impl PeerState {
 #[derive(Debug, Default)]
 struct PeerStreams {
     /// Mapping of remote IDs to streams in `StreamMap`
-    mapping: HashMap<PeerId, PeerState>,
+    mapping: HashMap<PeerId512, PeerState>,
 }
 
 impl PeerStreams {
-    fn disconnect_peer(&mut self, remote_id: PeerId) -> bool {
+    fn disconnect_peer(&mut self, remote_id: PeerId512) -> bool {
         debug!("disconnecting peer {}", remote_id);
 
         self.mapping.remove(&remote_id).is_some()
@@ -139,7 +139,7 @@ async fn handle_incoming<TS, C>(
 fn setup_peer_state<C, Io>(
     streams: Weak<Mutex<PeerStreams>>,
     capability_server: Arc<C>,
-    remote_id: PeerId,
+    remote_id: PeerId512,
     peer: PeerStream<Io>,
 ) -> ConnectedPeerState
 where
@@ -678,7 +678,7 @@ impl<C: CapabilityServer> Swarm<C> {
     fn add_peer_inner(
         &self,
         addr: SocketAddr,
-        remote_id: PeerId,
+        remote_id: PeerId512,
         untrusted_peer: bool,
     ) -> impl Future<Output = anyhow::Result<bool>> + Send + 'static {
         let tasks = self.tasks.clone();
