@@ -510,7 +510,7 @@ async fn main() -> anyhow::Result<()> {
     info!(
         "Node ID: {}",
         hex::encode(
-            devp2p::util::pk2id(&PublicKey::from_secret_key(SECP256K1, &secret_key)).as_bytes()
+            devp2p::util::pk_to_id512(&PublicKey::from_secret_key(SECP256K1, &secret_key)).as_bytes()
         )
     );
 

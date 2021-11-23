@@ -2,7 +2,7 @@ use crate::{
     errors::ECIESError,
     mac::*,
     types::*,
-    util::{hmac_sha256, id2pk, pk2id, sha256},
+    util::{hmac_sha256, id2pk, pk_to_id512, sha256},
 };
 use aes::{
     cipher::{NewCipher, StreamCipher},
@@ -249,7 +249,7 @@ impl ECIES {
         sig_bytes[64] = rec_id.to_i32() as u8;
         let mut out = RlpStream::new_list(4);
         out.append(&(&sig_bytes as &[u8]));
-        out.append(&pk2id(&self.public_key));
+        out.append(&pk_to_id512(&self.public_key));
         out.append(&self.nonce);
         out.append(&PROTOCOL_VERSION);
 
@@ -332,7 +332,7 @@ impl ECIES {
 
     fn create_ack_unencrypted(&self) -> BytesMut {
         let mut out = RlpStream::new_list(3);
-        out.append(&pk2id(&self.ephemeral_public_key));
+        out.append(&pk_to_id512(&self.ephemeral_public_key));
         out.append(&self.nonce);
         out.append(&PROTOCOL_VERSION);
         out.out()
@@ -587,7 +587,7 @@ mod tests {
 
         let mut server_ecies = ECIES::new_server(server_secret_key).unwrap();
         let mut client_ecies =
-            ECIES::new_client(client_secret_key, pk2id(&server_public_key)).unwrap();
+            ECIES::new_client(client_secret_key, pk_to_id512(&server_public_key)).unwrap();
 
         // Handshake
         let mut auth = client_ecies.create_auth();
@@ -670,7 +670,7 @@ mod tests {
             "7e968bba13b6c50e2c4cd7f241cc0d64d1ac25c7f5952df231ac6a2bda8ee5d6"
         ));
 
-        let server_id = pk2id(&PublicKey::from_secret_key(
+        let server_id = pk_to_id512(&PublicKey::from_secret_key(
             SECP256K1,
             &eip8_test_server_key(),
         ));

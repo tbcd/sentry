@@ -1,4 +1,4 @@
-use crate::{ecies::ECIESStream, transport::Transport, types::*, util::pk2id};
+use crate::{ecies::ECIESStream, transport::Transport, types::*, util::pk_to_id512};
 use anyhow::{anyhow, bail, Context as _};
 use bytes::{Bytes, BytesMut};
 use derive_more::Display;
@@ -210,7 +210,7 @@ where
         port: u16,
     ) -> anyhow::Result<Self> {
         let public_key = PublicKey::from_secret_key(SECP256K1, &secret_key);
-        let id = pk2id(&public_key);
+        let id = pk_to_id512(&public_key);
         let nonhello_capabilities = capabilities.clone();
         let nonhello_client_version = client_version.clone();
 

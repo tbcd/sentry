@@ -23,7 +23,7 @@ pub fn hmac_sha256(key: &[u8], input: &[&[u8]], auth_data: &[u8]) -> H256 {
     H256::from_slice(&*hmac.finalize().into_bytes())
 }
 
-pub fn pk2id(pk: &PublicKey) -> PeerId512 {
+pub fn pk_to_id512(pk: &PublicKey) -> PeerId512 {
     PeerId512::from_slice(&pk.serialize_uncompressed()[1..])
 }
 
@@ -44,9 +44,9 @@ mod tests {
     use secp256k1::{SecretKey, SECP256K1};
 
     #[test]
-    fn pk2id2pk() {
+    fn pk_to_id512_to_pk() {
         let prikey = SecretKey::new(&mut secp256k1::rand::thread_rng());
         let pubkey = PublicKey::from_secret_key(SECP256K1, &prikey);
-        assert_eq!(pubkey, id2pk(pk2id(&pubkey)).unwrap());
+        assert_eq!(pubkey, id2pk(pk_to_id512(&pubkey)).unwrap());
     }
 }

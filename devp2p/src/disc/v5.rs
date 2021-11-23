@@ -48,7 +48,7 @@ impl Discv5 {
                                                 if tx
                                                     .send(NodeRecord {
                                                         addr: (ip, port).into(),
-                                                        id: pk2id(
+                                                        id: pk_to_id512(
                                                             &PublicKey::from_slice(&pk.to_bytes())
                                                                 .unwrap(),
                                                         ),
