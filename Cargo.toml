@@ -37,6 +37,7 @@ hex = "0.4"
 hex-literal = "0.3"
 k256 = { version = "0.8", features = ["ecdsa"] }
 maplit = "1"
+memchr = "2.4.1"
 num-traits = "0.2"
 parking_lot = "0.11"
 plain_hasher = "0.2"
@@ -49,7 +50,7 @@ task-group = { git = "https://github.com/vorot93/task-group" }
 tokio = { version = "1", features = ["full", "tracing"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 toml = "0.5"
-tonic = { version = "0.5", features = ["tls"] }
+tonic = { version = "0.6", features = ["tls"] }
 tonic-health = "0.4"
 tracing = "0.1"
 tracing-futures = "0.2"
