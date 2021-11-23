@@ -226,10 +226,10 @@ impl ECIES {
             return Err(ECIESError::TagCheckFailed);
         }
 
-        let mut decrypted_data = encrypted_data;
+        let decrypted_data = encrypted_data;
 
         let mut decryptor = Aes128Ctr::new(enc_key.as_ref().into(), (&*iv).into());
-        decryptor.apply_keystream(&mut decrypted_data);
+        decryptor.apply_keystream(decrypted_data);
 
         Ok(decrypted_data)
     }
@@ -486,7 +486,7 @@ impl ECIES {
 
     pub fn read_header(&mut self, data: &mut [u8]) -> Result<usize, ECIESError> {
         let (header_bytes, mac_bytes) = data.split_at_mut(16);
-        let mut header = HeaderBytes::from_mut_slice(header_bytes);
+        let header = HeaderBytes::from_mut_slice(header_bytes);
         let mac = H128::from_slice(&mac_bytes[..16]);
 
         self.ingress_mac.as_mut().unwrap().update_header(header);
@@ -495,10 +495,7 @@ impl ECIES {
             return Err(ECIESError::TagCheckFailed);
         }
 
-        self.ingress_aes
-            .as_mut()
-            .unwrap()
-            .apply_keystream(&mut header);
+        self.ingress_aes.as_mut().unwrap().apply_keystream(header);
         self.body_size = Some(
             usize::try_from(header.as_slice().read_uint::<BigEndian>(3)?)
                 .context("excessive body len")?,
@@ -536,13 +533,10 @@ impl ECIES {
         let old_len = out.len();
         out.resize(old_len + len, 0);
 
-        let mut encrypted = &mut out[old_len..old_len + len];
+        let encrypted = &mut out[old_len..old_len + len];
         encrypted[..data.len()].copy_from_slice(data);
 
-        self.egress_aes
-            .as_mut()
-            .unwrap()
-            .apply_keystream(&mut encrypted);
+        self.egress_aes.as_mut().unwrap().apply_keystream(encrypted);
         self.egress_mac.as_mut().unwrap().update_body(encrypted);
         let tag = self.egress_mac.as_mut().unwrap().digest();
 
@@ -560,8 +554,8 @@ impl ECIES {
 
         let size = self.body_size.unwrap();
         self.body_size = None;
-        let mut ret = body;
-        self.ingress_aes.as_mut().unwrap().apply_keystream(&mut ret);
+        let ret = body;
+        self.ingress_aes.as_mut().unwrap().apply_keystream(ret);
         Ok(ret.split_at_mut(size).0)
     }
 }

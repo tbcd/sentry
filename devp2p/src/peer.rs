@@ -516,14 +516,13 @@ where
                         )
                     });
 
-                if id >= cap.length {
-                    panic!(
-                        "attempted to send payload with message id too big ({}/{}/{})",
-                        cap_name.0,
-                        id,
-                        this.remote_id()
-                    );
-                }
+                assert!(
+                    id < cap.length,
+                    "attempted to send payload with message id too big ({}/{}/{})",
+                    cap_name.0,
+                    id,
+                    this.remote_id()
+                );
 
                 let mut message_id = 0x10;
                 for scap in &this.shared_capabilities {

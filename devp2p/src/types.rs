@@ -99,7 +99,7 @@ pub enum InboundEvent {
         "reason.map(|r| r.to_string()).unwrap_or_else(|| \"(no reason)\".to_string())"
     )]
     Disconnect { reason: Option<DisconnectReason> },
-    #[display(fmt = "message/{}/{}", capability_name, "message.id.to_string()")]
+    #[display(fmt = "message/{}/{}", capability_name, "message.id")]
     Message {
         capability_name: CapabilityName,
         message: Message,
