@@ -27,10 +27,10 @@ pub fn pk_to_id512(pk: &PublicKey) -> PeerId512 {
     PeerId512::from_slice(&pk.serialize_uncompressed()[1..])
 }
 
-pub fn id2pk(id: PeerId512) -> Result<PublicKey, secp256k1::Error> {
+pub fn id512_to_pk(id512: PeerId512) -> Result<PublicKey, secp256k1::Error> {
     let mut s = [0_u8; 65];
     s[0] = 4;
-    s[1..].copy_from_slice(id.as_bytes());
+    s[1..].copy_from_slice(id512.as_bytes());
     PublicKey::from_slice(&s)
 }
 
@@ -47,6 +47,6 @@ mod tests {
     fn pk_to_id512_to_pk() {
         let prikey = SecretKey::new(&mut secp256k1::rand::thread_rng());
         let pubkey = PublicKey::from_secret_key(SECP256K1, &prikey);
-        assert_eq!(pubkey, id2pk(pk_to_id512(&pubkey)).unwrap());
+        assert_eq!(pubkey, id512_to_pk(pk_to_id512(&pubkey)).unwrap());
     }
 }

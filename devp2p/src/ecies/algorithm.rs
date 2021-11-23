@@ -2,7 +2,7 @@ use crate::{
     errors::ECIESError,
     mac::*,
     types::*,
-    util::{hmac_sha256, id2pk, pk_to_id512, sha256},
+    util::{hmac_sha256, id512_to_pk, pk_to_id512, sha256},
 };
 use aes::{
     cipher::{NewCipher, StreamCipher},
@@ -95,7 +95,7 @@ impl ECIES {
         ephemeral_secret_key: SecretKey,
     ) -> Result<Self, ECIESError> {
         let public_key = PublicKey::from_secret_key(SECP256K1, &secret_key);
-        let remote_public_key = id2pk(remote_id)?;
+        let remote_public_key = id512_to_pk(remote_id)?;
         let ephemeral_public_key = PublicKey::from_secret_key(SECP256K1, &ephemeral_secret_key);
 
         Ok(Self {
@@ -304,7 +304,7 @@ impl ECIES {
             .ok_or(rlp::DecoderError::RlpInvalidLength)?
             .as_val()?;
         self.remote_id = Some(remote_id);
-        self.remote_public_key = Some(id2pk(remote_id).context("failed to parse peer id")?);
+        self.remote_public_key = Some(id512_to_pk(remote_id).context("failed to parse peer id")?);
         self.remote_nonce = Some(
             rlp.next()
                 .ok_or(rlp::DecoderError::RlpInvalidLength)?
@@ -371,7 +371,7 @@ impl ECIES {
     fn parse_ack_unencrypted(&mut self, data: &[u8]) -> Result<(), ECIESError> {
         let rlp = Rlp::new(data);
         let mut rlp = rlp.into_iter();
-        self.remote_ephemeral_public_key = Some(id2pk(
+        self.remote_ephemeral_public_key = Some(id512_to_pk(
             rlp.next()
                 .ok_or(rlp::DecoderError::RlpInvalidLength)?
                 .as_val()?,
@@ -571,7 +571,7 @@ mod tests {
             "202a36e24c3eb39513335ec99a7619bad0e7dc68d69401b016253c7d26dc92f8"
         ))
         .unwrap();
-        let remote_public_key = id2pk(hex!("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").into()).unwrap();
+        let remote_public_key = id512_to_pk(hex!("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").into()).unwrap();
 
         assert_eq!(
             ecdh_x(&remote_public_key, &our_secret_key),
