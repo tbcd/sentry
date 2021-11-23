@@ -34,6 +34,10 @@ pub fn id512_to_pk(id512: PeerId512) -> Result<PublicKey, secp256k1::Error> {
     PublicKey::from_slice(&s)
 }
 
+pub fn id512_to_id256(id512: PeerId512) -> PeerId256 {
+    keccak256(id512.as_bytes())
+}
+
 pub fn hex_debug<T: AsRef<[u8]>>(s: &T, f: &mut Formatter) -> fmt::Result {
     f.write_str(&hex::encode(&s))
 }
