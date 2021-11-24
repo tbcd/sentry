@@ -1,4 +1,4 @@
-use crate::types::PeerId512;
+use crate::types::PeerIdPubKey;
 use std::{
     collections::HashSet,
     fmt::Debug,
@@ -10,17 +10,17 @@ use std::{
 
 pub trait NodeFilter: Debug + Send + 'static {
     fn max_peers(&self) -> usize;
-    fn is_banned(&self, id: PeerId512) -> bool;
-    fn is_allowed(&self, pool_size: usize, id: PeerId512) -> bool {
+    fn is_banned(&self, id: PeerIdPubKey) -> bool;
+    fn is_allowed(&self, pool_size: usize, id: PeerIdPubKey) -> bool {
         pool_size < self.max_peers() && !self.is_banned(id)
     }
-    fn ban(&mut self, id: PeerId512);
+    fn ban(&mut self, id: PeerIdPubKey);
 }
 
 #[derive(Debug)]
 pub struct MemoryNodeFilter {
     peer_limiter: Arc<AtomicUsize>,
-    ban_list: HashSet<PeerId512>,
+    ban_list: HashSet<PeerIdPubKey>,
 }
 
 impl MemoryNodeFilter {
@@ -37,11 +37,11 @@ impl NodeFilter for MemoryNodeFilter {
         self.peer_limiter.load(Ordering::Relaxed)
     }
 
-    fn is_banned(&self, id: PeerId512) -> bool {
+    fn is_banned(&self, id: PeerIdPubKey) -> bool {
         self.ban_list.contains(&id)
     }
 
-    fn ban(&mut self, id: PeerId512) {
+    fn ban(&mut self, id: PeerIdPubKey) {
         self.ban_list.insert(id);
     }
 }

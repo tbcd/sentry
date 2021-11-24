@@ -23,19 +23,19 @@ pub fn hmac_sha256(key: &[u8], input: &[&[u8]], auth_data: &[u8]) -> H256 {
     H256::from_slice(&*hmac.finalize().into_bytes())
 }
 
-pub fn pk_to_id512(pk: &PublicKey) -> PeerId512 {
-    PeerId512::from_slice(&pk.serialize_uncompressed()[1..])
+pub fn pk_to_id_pub_key(pk: &PublicKey) -> PeerIdPubKey {
+    PeerIdPubKey::from_slice(&pk.serialize_uncompressed()[1..])
 }
 
-pub fn id512_to_pk(id512: PeerId512) -> Result<PublicKey, secp256k1::Error> {
+pub fn id_pub_key_to_pk(id_pub_key: PeerIdPubKey) -> Result<PublicKey, secp256k1::Error> {
     let mut s = [0_u8; 65];
     s[0] = 4;
-    s[1..].copy_from_slice(id512.as_bytes());
+    s[1..].copy_from_slice(id_pub_key.as_bytes());
     PublicKey::from_slice(&s)
 }
 
-pub fn id512_to_id256(id512: PeerId512) -> PeerId256 {
-    keccak256(id512.as_bytes())
+pub fn id_pub_key_to_id_hash(id_pub_key: PeerIdPubKey) -> PeerIdHash {
+    keccak256(id_pub_key.as_bytes())
 }
 
 pub fn hex_debug<T: AsRef<[u8]>>(s: &T, f: &mut Formatter) -> fmt::Result {
@@ -48,9 +48,9 @@ mod tests {
     use secp256k1::{SecretKey, SECP256K1};
 
     #[test]
-    fn pk_to_id512_to_pk() {
+    fn pk_to_id_pub_key_to_pk() {
         let prikey = SecretKey::new(&mut secp256k1::rand::thread_rng());
         let pubkey = PublicKey::from_secret_key(SECP256K1, &prikey);
-        assert_eq!(pubkey, id512_to_pk(pk_to_id512(&pubkey)).unwrap());
+        assert_eq!(pubkey, id_pub_key_to_pk(pk_to_id_pub_key(&pubkey)).unwrap());
     }
 }

@@ -2,7 +2,7 @@ use crate::{
     errors::ECIESError,
     mac::*,
     types::*,
-    util::{hmac_sha256, id512_to_pk, pk_to_id512, sha256},
+    util::{hmac_sha256, id_pub_key_to_pk, pk_to_id_pub_key, sha256},
 };
 use aes::{
     cipher::{NewCipher, StreamCipher},
@@ -65,7 +65,7 @@ pub struct ECIES {
     public_key: PublicKey,
     remote_public_key: Option<PublicKey>,
 
-    pub(crate) remote_id: Option<PeerId512>,
+    pub(crate) remote_id: Option<PeerIdPubKey>,
 
     #[educe(Debug(ignore))]
     ephemeral_secret_key: SecretKey,
@@ -90,12 +90,12 @@ pub struct ECIES {
 impl ECIES {
     fn new_static_client(
         secret_key: SecretKey,
-        remote_id: PeerId512,
+        remote_id: PeerIdPubKey,
         nonce: H256,
         ephemeral_secret_key: SecretKey,
     ) -> Result<Self, ECIESError> {
         let public_key = PublicKey::from_secret_key(SECP256K1, &secret_key);
-        let remote_public_key = id512_to_pk(remote_id)?;
+        let remote_public_key = id_pub_key_to_pk(remote_id)?;
         let ephemeral_public_key = PublicKey::from_secret_key(SECP256K1, &ephemeral_secret_key);
 
         Ok(Self {
@@ -122,7 +122,7 @@ impl ECIES {
         })
     }
 
-    pub fn new_client(secret_key: SecretKey, remote_id: PeerId512) -> Result<Self, ECIESError> {
+    pub fn new_client(secret_key: SecretKey, remote_id: PeerIdPubKey) -> Result<Self, ECIESError> {
         let nonce = H256::random();
         let ephemeral_secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
 
@@ -168,7 +168,7 @@ impl ECIES {
         Self::new_static_server(secret_key, nonce, ephemeral_secret_key)
     }
 
-    pub fn remote_id(&self) -> PeerId512 {
+    pub fn remote_id(&self) -> PeerIdPubKey {
         self.remote_id.unwrap()
     }
 
@@ -249,7 +249,7 @@ impl ECIES {
         sig_bytes[64] = rec_id.to_i32() as u8;
         let mut out = RlpStream::new_list(4);
         out.append(&(&sig_bytes as &[u8]));
-        out.append(&pk_to_id512(&self.public_key));
+        out.append(&pk_to_id_pub_key(&self.public_key));
         out.append(&self.nonce);
         out.append(&PROTOCOL_VERSION);
 
@@ -304,7 +304,8 @@ impl ECIES {
             .ok_or(rlp::DecoderError::RlpInvalidLength)?
             .as_val()?;
         self.remote_id = Some(remote_id);
-        self.remote_public_key = Some(id512_to_pk(remote_id).context("failed to parse peer id")?);
+        self.remote_public_key =
+            Some(id_pub_key_to_pk(remote_id).context("failed to parse peer id")?);
         self.remote_nonce = Some(
             rlp.next()
                 .ok_or(rlp::DecoderError::RlpInvalidLength)?
@@ -332,7 +333,7 @@ impl ECIES {
 
     fn create_ack_unencrypted(&self) -> BytesMut {
         let mut out = RlpStream::new_list(3);
-        out.append(&pk_to_id512(&self.ephemeral_public_key));
+        out.append(&pk_to_id_pub_key(&self.ephemeral_public_key));
         out.append(&self.nonce);
         out.append(&PROTOCOL_VERSION);
         out.out()
@@ -371,7 +372,7 @@ impl ECIES {
     fn parse_ack_unencrypted(&mut self, data: &[u8]) -> Result<(), ECIESError> {
         let rlp = Rlp::new(data);
         let mut rlp = rlp.into_iter();
-        self.remote_ephemeral_public_key = Some(id512_to_pk(
+        self.remote_ephemeral_public_key = Some(id_pub_key_to_pk(
             rlp.next()
                 .ok_or(rlp::DecoderError::RlpInvalidLength)?
                 .as_val()?,
@@ -571,7 +572,7 @@ mod tests {
             "202a36e24c3eb39513335ec99a7619bad0e7dc68d69401b016253c7d26dc92f8"
         ))
         .unwrap();
-        let remote_public_key = id512_to_pk(hex!("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").into()).unwrap();
+        let remote_public_key = id_pub_key_to_pk(hex!("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").into()).unwrap();
 
         assert_eq!(
             ecdh_x(&remote_public_key, &our_secret_key),
@@ -587,7 +588,7 @@ mod tests {
 
         let mut server_ecies = ECIES::new_server(server_secret_key).unwrap();
         let mut client_ecies =
-            ECIES::new_client(client_secret_key, pk_to_id512(&server_public_key)).unwrap();
+            ECIES::new_client(client_secret_key, pk_to_id_pub_key(&server_public_key)).unwrap();
 
         // Handshake
         let mut auth = client_ecies.create_auth();
@@ -670,7 +671,7 @@ mod tests {
             "7e968bba13b6c50e2c4cd7f241cc0d64d1ac25c7f5952df231ac6a2bda8ee5d6"
         ));
 
-        let server_id = pk_to_id512(&PublicKey::from_secret_key(
+        let server_id = pk_to_id_pub_key(&PublicKey::from_secret_key(
             SECP256K1,
             &eip8_test_server_key(),
         ));

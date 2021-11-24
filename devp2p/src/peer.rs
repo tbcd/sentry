@@ -1,4 +1,4 @@
-use crate::{ecies::ECIESStream, transport::Transport, types::*, util::pk_to_id512};
+use crate::{ecies::ECIESStream, transport::Transport, types::*, util::pk_to_id_pub_key};
 use anyhow::{anyhow, bail, Context as _};
 use bytes::{Bytes, BytesMut};
 use derive_more::Display;
@@ -84,7 +84,7 @@ pub struct HelloMessage {
     pub client_version: String,
     pub capabilities: Vec<CapabilityMessage>,
     pub port: u16,
-    pub id: PeerId512,
+    pub id: PeerIdPubKey,
 }
 
 impl Encodable for HelloMessage {
@@ -133,8 +133,8 @@ pub struct PeerStream<Io> {
     client_version: String,
     shared_capabilities: Vec<CapabilityInfo>,
     port: u16,
-    id: PeerId512,
-    remote_id: PeerId512,
+    id: PeerIdPubKey,
+    remote_id: PeerIdPubKey,
 
     snappy: Snappy,
 
@@ -146,7 +146,7 @@ where
     Io: Transport,
 {
     /// Remote public id of this peer
-    pub fn remote_id(&self) -> PeerId512 {
+    pub fn remote_id(&self) -> PeerIdPubKey {
         self.remote_id
     }
 
@@ -163,7 +163,7 @@ where
     pub async fn connect(
         transport: Io,
         secret_key: SecretKey,
-        remote_id: PeerId512,
+        remote_id: PeerIdPubKey,
         client_version: String,
         capabilities: Vec<CapabilityInfo>,
         port: u16,
@@ -210,7 +210,7 @@ where
         port: u16,
     ) -> anyhow::Result<Self> {
         let public_key = PublicKey::from_secret_key(SECP256K1, &secret_key);
-        let id = pk_to_id512(&public_key);
+        let id = pk_to_id_pub_key(&public_key);
         let nonhello_capabilities = capabilities.clone();
         let nonhello_client_version = client_version.clone();
 

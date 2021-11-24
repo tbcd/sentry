@@ -50,7 +50,7 @@ impl DnsDiscovery {
                                 if tx
                                     .send(Ok(NodeRecord {
                                         addr,
-                                        id: pk_to_id512(&v.public_key()),
+                                        id: pk_to_id_pub_key(&v.public_key()),
                                     }))
                                     .await
                                     .is_err()

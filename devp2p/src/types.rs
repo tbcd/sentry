@@ -5,7 +5,7 @@ use auto_impl::auto_impl;
 use bytes::Bytes;
 use derive_more::Display;
 use educe::Educe;
-pub use ethereum_types::{H256 as PeerId256, H512 as PeerId512};
+pub use ethereum_types::{H256 as PeerIdHash, H512 as PeerIdPubKey};
 use rlp::{DecoderError, Rlp, RlpStream};
 use std::{collections::HashMap, fmt::Debug, net::SocketAddr, str::FromStr};
 
@@ -13,7 +13,7 @@ use std::{collections::HashMap, fmt::Debug, net::SocketAddr, str::FromStr};
 #[derive(Clone, Copy, Debug)]
 pub struct NodeRecord {
     /// Node ID.
-    pub id: PeerId512,
+    pub id: PeerIdPubKey,
     /// Address of RLPx TCP server.
     pub addr: SocketAddr,
 }
@@ -121,20 +121,20 @@ pub enum OutboundEvent {
 #[auto_impl(&, Box, Arc)]
 pub trait CapabilityServer: Send + Sync + 'static {
     /// Should be used to set up relevant state for the peer.
-    fn on_peer_connect(&self, peer: PeerId256, caps: HashMap<CapabilityName, CapabilityVersion>);
+    fn on_peer_connect(&self, peer: PeerIdHash, caps: HashMap<CapabilityName, CapabilityVersion>);
     /// Called on the next event for peer.
-    async fn on_peer_event(&self, peer: PeerId256, event: InboundEvent);
+    async fn on_peer_event(&self, peer: PeerIdHash, event: InboundEvent);
     /// Get the next event for peer.
-    async fn next(&self, peer: PeerId256) -> OutboundEvent;
+    async fn next(&self, peer: PeerIdHash) -> OutboundEvent;
 }
 
 #[async_trait]
 impl CapabilityServer for () {
-    fn on_peer_connect(&self, _: PeerId256, _: HashMap<CapabilityName, CapabilityVersion>) {}
+    fn on_peer_connect(&self, _: PeerIdHash, _: HashMap<CapabilityName, CapabilityVersion>) {}
 
-    async fn on_peer_event(&self, _: PeerId256, _: InboundEvent) {}
+    async fn on_peer_event(&self, _: PeerIdHash, _: InboundEvent) {}
 
-    async fn next(&self, _: PeerId256) -> OutboundEvent {
+    async fn next(&self, _: PeerIdHash) -> OutboundEvent {
         futures::future::pending().await
     }
 }

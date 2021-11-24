@@ -1,5 +1,5 @@
 use super::algorithm::ECIES;
-use crate::{errors::ECIESError, transport::Transport, types::PeerId512};
+use crate::{errors::ECIESError, transport::Transport, types::PeerIdPubKey};
 use anyhow::{bail, Context as _};
 use bytes::{Bytes, BytesMut};
 use futures::{ready, Sink, SinkExt};
@@ -34,7 +34,7 @@ pub enum EgressECIESValue {
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// Raw ingress values for an ECIES protocol
 pub enum IngressECIESValue {
-    AuthReceive(PeerId512),
+    AuthReceive(PeerIdPubKey),
     Ack,
     Message(Bytes),
 }
@@ -56,7 +56,7 @@ impl ECIESCodec {
     }
 
     /// Create a new client codec using the given secret key and the server's public id
-    pub fn new_client(secret_key: SecretKey, remote_id: PeerId512) -> Result<Self, ECIESError> {
+    pub fn new_client(secret_key: SecretKey, remote_id: PeerIdPubKey) -> Result<Self, ECIESError> {
         Ok(Self {
             ecies: ECIES::new_client(secret_key, remote_id)?,
             state: ECIESState::Auth,
@@ -165,7 +165,7 @@ impl Encoder<EgressECIESValue> for ECIESCodec {
 #[derive(Debug)]
 pub struct ECIESStream<Io> {
     stream: Framed<Io, ECIESCodec>,
-    remote_id: PeerId512,
+    remote_id: PeerIdPubKey,
 }
 
 impl<Io> ECIESStream<Io>
@@ -177,7 +177,7 @@ where
     pub async fn connect(
         transport: Io,
         secret_key: SecretKey,
-        remote_id: PeerId512,
+        remote_id: PeerIdPubKey,
     ) -> anyhow::Result<Self> {
         let ecies = ECIESCodec::new_client(secret_key, remote_id)
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "invalid handshake"))?;
@@ -232,7 +232,7 @@ where
     }
 
     /// Get the remote id
-    pub fn remote_id(&self) -> PeerId512 {
+    pub fn remote_id(&self) -> PeerIdPubKey {
         self.remote_id
     }
 }
