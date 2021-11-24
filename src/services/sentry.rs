@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use devp2p::*;
 use futures::{stream::FuturesUnordered, Stream, TryStreamExt};
 use num_traits::ToPrimitive;
+use secp256k1::rand::seq::IteratorRandom;
 use std::{collections::HashSet, convert::TryFrom, pin::Pin, sync::Arc};
 use tokio_stream::{
     wrappers::{errors::BroadcastStreamRecvError, BroadcastStream},
@@ -206,10 +207,11 @@ impl Sentry for SentryService {
 
         Ok(Response::new(
             self.send_by_predicate(data, |capability_server| {
-                capability_server
-                    .all_peers()
+                let peers = capability_server.all_peers();
+                let amount = usize::min(max_peers as usize, peers.len());
+                peers
                     .into_iter()
-                    .take(max_peers as usize)
+                    .choose_multiple(&mut secp256k1::rand::thread_rng(), amount)
             })
             .await,
         ))
