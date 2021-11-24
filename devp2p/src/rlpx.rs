@@ -5,7 +5,8 @@ use crate::{
     node_filter::{MemoryNodeFilter, NodeFilter},
     peer::*,
     transport::{TcpServer, TokioCidrListener, Transport},
-    types::*, util::id512_to_id256,
+    types::*,
+    util::id512_to_id256,
 };
 use anyhow::{anyhow, bail, Context};
 use cidr::IpCidr;
@@ -221,7 +222,12 @@ where
 
             let _ = peer_disconnect_tx.send(disconnect_signal);
         }
-        .instrument(span!(Level::DEBUG, "IN", "peer={}", remote_id512.to_string(),))
+        .instrument(span!(
+            Level::DEBUG,
+            "IN",
+            "peer={}",
+            remote_id512.to_string(),
+        ))
     });
 
     // This will send our packets to peer.

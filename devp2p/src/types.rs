@@ -5,8 +5,7 @@ use auto_impl::auto_impl;
 use bytes::Bytes;
 use derive_more::Display;
 use educe::Educe;
-pub use ethereum_types::H256 as PeerId256;
-pub use ethereum_types::H512 as PeerId512;
+pub use ethereum_types::{H256 as PeerId256, H512 as PeerId512};
 use rlp::{DecoderError, Rlp, RlpStream};
 use std::{collections::HashMap, fmt::Debug, net::SocketAddr, str::FromStr};
 
