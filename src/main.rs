@@ -138,21 +138,26 @@ impl CapabilityServerImpl {
         assert!(pipes.insert(peer, p).is_none());
         block_tracker.set_block_number(peer, 0, true);
     }
+
     fn get_pipes(&self, peer: PeerId) -> Option<Pipes> {
         self.peer_pipes.read().get(&peer).cloned()
     }
+
     pub fn sender(&self, peer: PeerId) -> Option<OutboundSender> {
         self.peer_pipes
             .read()
             .get(&peer)
             .map(|pipes| pipes.sender.clone())
     }
+
     fn receiver(&self, peer: PeerId) -> Option<OutboundReceiver> {
         self.peer_pipes
             .read()
             .get(&peer)
             .map(|pipes| pipes.receiver.clone())
     }
+
+    #[instrument(name = "CapabilityServerImpl.teardown_peer", skip(self))]
     fn teardown_peer(&self, peer: PeerId) {
         let mut pipes = self.peer_pipes.write();
         let mut block_tracker = self.block_tracker.write();
@@ -166,8 +171,8 @@ impl CapabilityServerImpl {
             peer_id: Some(ethereum_interfaces::types::H512::from(peer)),
             event: grpc::sentry::peers_reply::PeerEvent::Disconnect as i32,
         });
-        if let Err(error) = send_status_result {
-            warn!("Failed to notify about a disconnected peer: {}", error);
+        if send_status_result.is_err() {
+            debug!("No subscribers to report peer status to");
         }
     }
 
@@ -184,8 +189,8 @@ impl CapabilityServerImpl {
         self.no_new_peers.store(false, Ordering::SeqCst);
     }
 
-    #[instrument(skip(self))]
-    async fn handle_event(
+    #[instrument(name = "CapabilityServerImpl.handle_event", skip(self))]
+    fn handle_event(
         &self,
         peer: PeerId,
         event: InboundEvent,
@@ -230,8 +235,8 @@ impl CapabilityServerImpl {
                                     peer_id: Some(ethereum_interfaces::types::H512::from(peer)),
                                     event: grpc::sentry::peers_reply::PeerEvent::Connect as i32,
                                 });
-                            if let Err(error) = send_status_result {
-                                warn!("Failed to notify about a connected peer: {}", error);
+                            if send_status_result.is_err() {
+                                debug!("No subscribers to report peer status to");
                             }
                         }
                     }
@@ -314,7 +319,7 @@ impl CapabilityServer for CapabilityServerImpl {
     async fn on_peer_event(&self, peer: PeerId, event: InboundEvent) {
         debug!("Received message");
 
-        if let Some(ev) = self.handle_event(peer, event).await.transpose() {
+        if let Some(ev) = self.handle_event(peer, event).transpose() {
             let _ = self
                 .sender(peer)
                 .unwrap()
